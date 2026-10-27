@@ -109,7 +109,8 @@ namespace Whisper
                 var sw = new Stopwatch();
                 sw.Start();
             
-                var readySamples = AudioUtils.Preprocess(samples,frequency, channels, WhisperSampleRate);
+                var readySamples = PadInferenceAudio(
+                    AudioUtils.Preprocess(samples, frequency, channels, WhisperSampleRate));
             
                 LogUtils.Verbose($"Audio data is preprocessed, total time: {sw.ElapsedMilliseconds} ms.");
 
@@ -168,6 +169,15 @@ namespace Whisper
         {
             var asyncTask = Task.Factory.StartNew(() => GetText(samples, frequency, channels, param));
             return await asyncTask;
+        }
+
+        // Pad only the native inference copy; never feed synthetic silence back into stream context.
+        internal static float[] PadInferenceAudio(float[] samples)
+        {
+            if (samples.Length == 0 || samples.Length >= WhisperSampleRate) return samples;
+            var padded = new float[WhisperSampleRate];
+            Array.Copy(samples, padded, samples.Length);
+            return padded;
         }
 
         private unsafe bool InferenceWhisper(float[] samples, WhisperNativeParams param)
